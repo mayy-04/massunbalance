@@ -141,6 +141,7 @@ def diagnose(H, V, A):
                 "1X สูงกว่ายอดอื่นอย่างน้อย %g เท่า ในแนวรัศมี" % ONE_X_RATIO)
         add("Mechanical Looseness Type A (ฐานเครื่อง/แท่นยึดอ่อนแอ, Soft Foot)",
             "สเปกตรัม 1X ล้วน เหมือนกับ Unbalance", "ควรตรวจโบลต์/ฐานราก")
+        
     # 1b) 1X เป็นยอดสูงสุด แต่มียอดอื่นสูงปน
     if not unbalance and radial_wins:
         names = [n for n, f in radial if f["one_x_top"] and not f["fractions"]
@@ -155,6 +156,7 @@ def diagnose(H, V, A):
             add("Mass Unbalance (เป็นไปได้ แต่ 1X ไม่ได้เด่นชัด)",
                 "1X เป็นยอดสูงสุดในแนวรัศมี แต่มียอดอื่นสูงปนอยู่ที่ Order " + str(sorted(big)),
                 "ไม่ใช่สเปกตรัม 1X ล้วนตามตาราง ควรหาสาเหตุของยอดอื่นด้วย")
+            
     # 2) แนวแกนสูง: Angular, Bent Shaft, Cocked Bearing
     top = a["top"]
     if axial_high and not unbalance and top is not None and any(near(top, n) for n in (1, 2, 3)):
@@ -164,6 +166,7 @@ def diagnose(H, V, A):
             add("Bent Shaft (เพลาคด/งอ)", "แนวแกนสูง โดย 1X เด่น (หรือ 2X ถ้าคดใกล้คัปปลิง)")
         if a["x3"] > 0 and (a["x1"] > 0 or a["x2"] > 0):
             add("Bearing Cocked on Shaft (ลูกปืนเอียงบนเพลา)", "แนวแกนสูง มี 1X, 2X, 3X")
+
     # 3) Parallel Misalignment: 1X, 2X + 3X หรือ 4X-8X (ไม่มีเศษส่วน)
     par = [n for n, f in radial if f["x1"] > 0 and f["x2"] > 0 and not f["fractions"]
            and (f["x3"] > 0 or any(4 <= k <= 8 for k in f["harmonics"]))]
@@ -172,6 +175,7 @@ def diagnose(H, V, A):
         note = ["มียอด 4X-8X แสดงว่ารุนแรง และสเปกตรัมจะคล้าย Looseness"] if severe else []
         add("Parallel Misalignment (เยื้องศูนย์แบบขนาน)",
             "แนวรัศมี (" + "/".join(par) + ") มี 1X, 2X ร่วมกับ 3X หรือฮาร์มอนิกสูงกว่า", *note)
+        
     # 4) Looseness Type B: 1X + 2X/3X ไม่มีเศษส่วน
     lb = [n for n, f in radial if f["x1"] > 0 and (f["x2"] > 0 or f["x3"] > 0)
           and not f["fractions"] and len(f["harmonics"]) < MANY]
@@ -179,6 +183,7 @@ def diagnose(H, V, A):
         add("Mechanical Looseness Type B (โครงสร้าง/ฐานร้าว หรือโบลต์ขาตั้งแบริ่งหลวม)",
             "แนวรัศมี (" + "/".join(lb) + ") มี 1X ร่วมกับ 2X/3X ไม่มีความถี่เศษส่วน",
             "สเปกตรัมคล้าย Parallel Misalignment")
+        
     # 5) Looseness Type C: เศษส่วนหลายตำแหน่ง + ฮาร์มอนิกหลายตัว
     lc = [n for n, f in radial if len(f["fractions_low"]) >= CTYPE_MIN_POSITIONS
           and len(f["harmonics"]) >= CTYPE_MIN_HARMONICS]
@@ -187,6 +192,7 @@ def diagnose(H, V, A):
         add("Mechanical Looseness Type C (ประกอบหลวมภายใน เช่น ลูกปืนกับเสื้อ, ปลอกแบริ่งสึก)",
             "พบความถี่เศษส่วน " + str(fr) + " ร่วมกับฮาร์มอนิกหลายตัว",
             "ตรวจคลื่นเวลา: Type C จะเห็นคลื่นถูกตัดทอน")
+        
     # 6) Rotor Rub: เศษส่วนหลายตำแหน่ง
     rub = [n for n, f in radial if len(f["fractions_low"]) >= RUB_MIN_POSITIONS]
     if ok(rub):
@@ -194,12 +200,14 @@ def diagnose(H, V, A):
         add("Rotor Rub (โรเตอร์เสียดสี) ความเป็นไปได้: " + ("สูง" if cnt >= 3 else "เป็นไปได้"),
             "พบความถี่เศษส่วน/ซับฮาร์มอนิก " + str(cnt) + " ตำแหน่ง",
             "ตรวจคลื่นเวลาว่าถูกตัดแบนหรือไม่")
+        
     # 7) Sleeve Bearing: ฮาร์มอนิกเรียงต่อเนื่องกันอย่างน้อย MANY ตัว
     wear = [n for n, f in radial if has_run(f["harmonics"], MANY)]
     if ok(wear):
         detail = "  ".join("%s: %s" % (n, " ".join("%dX" % k for k in f["harmonics"]))
                            for n, f in radial if n in wear)
         add("Sleeve Bearing Wear / Excessive Clearance", "ฮาร์มอนิกเรียงต่อเนื่องในแนวรัศมี -> " + detail)
+        
     # 8) Oil Whirl: 0.42-0.48X
     wh = [n for n, f in radial if f["whirl"]]
     if ok(wh) or (wh and OIL_WHIRL_ONE_AXIS):
